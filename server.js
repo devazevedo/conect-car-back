@@ -100,9 +100,6 @@ app.use(cors());
   app.get('/api/users/:id', async (req, res) => {
     const userId = req.params.id;
     
-    // Lógica para recuperar os detalhes do usuário com o ID fornecido
-    
-    // Exemplo: consulta no banco de dados
     const [rows, fields] = await connection.execute(
       'SELECT * FROM users WHERE id = ?',
       [userId]
@@ -115,6 +112,53 @@ app.use(cors());
     } else {
       // Caso o usuário com o ID fornecido não seja encontrado
       res.status(404).json({ message: 'Usuário não encontrado' });
+    }
+  });
+
+  app.put('/api/users/:id', async (req, res) => {
+    const userId = req.params.id;
+    const body = req.body;
+    
+    const [rowsVerifica, fieldsVerifica] = await connection.execute(
+      'SELECT * FROM users WHERE id = ?',
+      [userId]
+    );
+    
+    if (rowsVerifica.length <= 0) {
+      const user = rowsVerifica[0];      
+      res.status(404).json({ message: 'Usuário não encontrado' });
+    } else {
+      const [rows, fields] = await connection.execute(
+        'UPDATE users SET username = ?, cpf = ?, email = ?, password = ? WHERE id = ?',
+        [
+          body.username,
+          body.cpf,
+          body.email,
+          body.password,
+          userId
+        ]
+      );
+
+      if(rows.affectedRows > 0){
+        res.status(200).json({ message: 'Usuario alterado com sucesso' });
+      }else{
+        res.status(401).json({ message: 'Não foi possivel alterar o usuario' });
+      }
+    }
+  });
+
+  app.delete('/api/users/:id', async (req, res) => {
+    const userId = req.params.id;
+    
+    const [rows, fields] = await connection.execute(
+      'DELETE FROM users WHERE id = ?',
+      [userId]
+    );
+
+    if(rows.affectedRows > 0){
+      res.status(200).json({ message: 'Usuario excluido com sucesso' });
+    }else{
+      res.status(401).json({ message: 'Não foi possivel excluir o usuario' });
     }
   });
   
