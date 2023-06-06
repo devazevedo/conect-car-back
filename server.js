@@ -5,6 +5,7 @@ const app = express();
 const port = process.env.PORT || 3000;
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
+const nodemailer = require('nodemailer');
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -57,8 +58,44 @@ app.use(cors());
   app.post('/api/users', async (req, res) => {
     const { username, cpf, email, password } = req.body;
   
-    // Lógica para processar e manipular os dados enviados
-    const [rows, fields] = await connection.execute(
+    // Verificar se já existe um usuário com o mesmo login, email ou CPF
+    const [existingUserRows] = await connection.execute(
+      'SELECT * FROM users WHERE username = ? OR email = ? OR cpf = ?',
+      [username, email, cpf]
+    );
+  
+    if (existingUserRows.length > 0) {
+      const conflicts = {};
+  
+      existingUserRows.forEach(user => {
+        if (user.username === username) {
+          conflicts.username = true;
+        }
+        if (user.email === email) {
+          conflicts.email = true;
+        }
+        if (user.cpf === cpf) {
+          conflicts.cpf = true;
+        }
+      });
+  
+      let message = 'Já existe um cadastro com essas informações.';
+  
+      if (conflicts.username) {
+        message = 'Já existe um cadastro com esse login.';
+      } else if (conflicts.email) {
+        message = 'Já existe um cadastro com esse email.';
+      } else if (conflicts.cpf) {
+        message = 'Já existe um cadastro com esse CPF.';
+      }
+  
+      // Enviar a resposta com a mensagem de conflito
+      res.status(409).json({ message, conflicts });
+      return;
+    }
+  
+    // Se não houver nenhum usuário com os mesmos valores, inserir o novo usuário
+    const [insertUserRows] = await connection.execute(
       'INSERT INTO users (username, cpf, email, password) VALUES (?,?,?,?)',
       [
         username,
@@ -67,21 +104,87 @@ app.use(cors());
         password
       ]
     );
-
-    if(rows.affectedRows > 0){
-      res.status(200).json({ message: 'Usuario cadastrado com sucesso' });
-    }else{
-      res.status(401).json({ message: 'Não foi possivel cadastrar o usuario' });
+  
+    if (insertUserRows.affectedRows > 0) {
+      const userId = insertUserRows.insertId;
+      // Gerar um código de validação (por exemplo, um código aleatório)
+      const validationCode = generateValidationCode();
+  
+      // Enviar o e-mail com o código de validação
+      const transporter = nodemailer.createTransport({
+        host: 'smtp.elasticemail.com',
+        port: 2525,
+        secure: false, // Use SSL/TLS
+        auth: {
+          user: 'azevedoafc23@gmail.com', // Seu endereço de e-mail
+          pass: '75BFCCEBCAAFC8C74C6217362DB9BA4B846F' // Sua senha de e-mail
+        }
+      });
+  
+      const mailOptions = {
+        from: 'azevedoafc23@gmail.com', // Endereço de e-mail remetente
+        to: email, // Endereço de e-mail destinatário
+        subject: 'Código de validação', // Assunto do e-mail
+        text: `Seu código de validação é: ${validationCode}` // Corpo do e-mail
+      };
+  
+      let enviado = 0;
+  
+      // Envolva a função sendMail em uma Promise
+      const sendMailPromise = new Promise((resolve, reject) => {
+        transporter.sendMail(mailOptions, (error, info) => {
+          if (error) {
+            console.log('Erro ao enviar o e-mail:', error);
+            reject(error);
+          } else {
+            console.log('E-mail enviado:', info.response);
+            enviado = 1;
+            resolve();
+          }
+        });
+      });
+  
+      try {
+        await sendMailPromise; // Aguarde o envio do e-mail
+  
+        const [rows, fields] = await connection.execute(
+          'INSERT INTO codigo_validacao (codigo, id_usuario, email_enviado) VALUES (?,?,?)',
+          [
+            validationCode,
+            userId,
+            enviado // Define o valor padrão de email_enviado como 0
+          ]
+        );
+  
+        res.status(200).json({ message: 'Usuário cadastrado com sucesso.' });
+      } catch (error) {
+        res.status(500).json({ message: 'Erro ao enviar o e-mail de validação.' });
+      }
+    } else {
+      res.status(401).json({ message: 'Não foi possível cadastrar o usuário.' });
     }
   });
+  
+  function generateValidationCode() {
+    const codeLength = 6; // Comprimento do código de validação
+    let code = '';
+  
+    for (let i = 0; i < codeLength; i++) {
+      const randomDigit = Math.floor(Math.random() * 10);
+      code += randomDigit;
+    }
+  
+    return code;
+  }
+  
 
   app.get('/api/users', async (req, res) => {
     // Lógica para recuperar dados de usuários do banco de dados
     const users = await connection.execute('SELECT * FROM users');
-    
-    if(users && users[0]){
+
+    if (users && users[0]) {
       res.status(200).json({ conteudo: users[0] });
-    }else{
+    } else {
       res.status(401).json({ message: 'Nenhum usuario encontrado' });
     }
   });
@@ -89,24 +192,24 @@ app.use(cors());
   app.get('/api/users', async (req, res) => {
     // Lógica para recuperar dados de usuários do banco de dados
     const users = await connection.execute('SELECT * FROM users');
-    
-    if(users && users[0]){
+
+    if (users && users[0]) {
       res.status(200).json({ conteudo: users[0] });
-    }else{
+    } else {
       res.status(401).json({ message: 'Nenhum usuario encontrado' });
     }
   });
 
   app.get('/api/users/:id', async (req, res) => {
     const userId = req.params.id;
-    
+
     const [rows, fields] = await connection.execute(
       'SELECT * FROM users WHERE id = ?',
       [userId]
     );
-    
+
     if (rows.length > 0) {
-      const user = rows[0];      
+      const user = rows[0];
       // Envia a resposta com os detalhes do usuário como JSON
       res.status(200).json({ conteudo: user });
     } else {
@@ -118,14 +221,14 @@ app.use(cors());
   app.put('/api/users/:id', async (req, res) => {
     const userId = req.params.id;
     const body = req.body;
-    
+
     const [rowsVerifica, fieldsVerifica] = await connection.execute(
       'SELECT * FROM users WHERE id = ?',
       [userId]
     );
-    
+
     if (rowsVerifica.length <= 0) {
-      const user = rowsVerifica[0];      
+      const user = rowsVerifica[0];
       res.status(404).json({ message: 'Usuário não encontrado' });
     } else {
       const [rows, fields] = await connection.execute(
@@ -139,9 +242,9 @@ app.use(cors());
         ]
       );
 
-      if(rows.affectedRows > 0){
+      if (rows.affectedRows > 0) {
         res.status(200).json({ message: 'Usuario alterado com sucesso' });
-      }else{
+      } else {
         res.status(401).json({ message: 'Não foi possivel alterar o usuario' });
       }
     }
@@ -149,19 +252,19 @@ app.use(cors());
 
   app.delete('/api/users/:id', async (req, res) => {
     const userId = req.params.id;
-    
+
     const [rows, fields] = await connection.execute(
       'DELETE FROM users WHERE id = ?',
       [userId]
     );
 
-    if(rows.affectedRows > 0){
+    if (rows.affectedRows > 0) {
       res.status(200).json({ message: 'Usuario excluido com sucesso' });
-    }else{
+    } else {
       res.status(401).json({ message: 'Não foi possivel excluir o usuario' });
     }
   });
-  
-  
-  
+
+
+
 })();
