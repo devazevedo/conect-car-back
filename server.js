@@ -32,8 +32,7 @@ app.use(cors());
   // Rotas do servidor
   app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
-    console.log(username, password);
-
+  
     // Procura o usuário no banco de dados
     const [rows, fields] = await connection.execute(
       'SELECT * FROM users WHERE username = ?',
@@ -41,17 +40,20 @@ app.use(cors());
     );
 
     if (rows.length > 0) {
-      const user = rows[0];
-
+      const user = rows[0];  
       // Verifica se a senha está correta
       if (password === user.password) {
-        const token = jwt.sign({ username }, 'secret');
-        res.json({ token });
+        if (user.email_verificado.readInt8(0) === 1) { // Verifica se o email está verificado
+          const token = jwt.sign({ username }, 'secret');
+          res.json({ token });
+        } else {
+          res.status(401).json({ message: 'Email não verificado' });
+        }
       } else {
-        res.status(401).json({ message: 'Invalid credentials' });
+        res.status(401).json({ message: 'Login ou senha inválidos' });
       }
     } else {
-      res.status(401).json({ message: 'Invalid credentials' });
+      res.status(401).json({ message: 'Login ou senha inválidos' });
     }
   });
 
@@ -107,25 +109,25 @@ app.use(cors());
   
     if (insertUserRows.affectedRows > 0) {
       const userId = insertUserRows.insertId;
-      // Gerar um código de validação (por exemplo, um código aleatório)
-      const validationCode = generateValidationCode();
-  
+
+      const encodedUserId = encodeURIComponent(userId)
+      
       // Enviar o e-mail com o código de validação
       const transporter = nodemailer.createTransport({
         host: 'smtp.elasticemail.com',
         port: 2525,
         secure: false, // Use SSL/TLS
         auth: {
-          user: 'azevedoafc23@gmail.com', // Seu endereço de e-mail
-          pass: '75BFCCEBCAAFC8C74C6217362DB9BA4B846F' // Sua senha de e-mail
+          user: 'contato.makesolution@gmail.com', // Seu endereço de e-mail
+          pass: 'BDEAE44EB15CC5FEB0F2DD5521D943FB4FB7' // Sua senha de e-mail
         }
       });
   
       const mailOptions = {
-        from: 'azevedoafc23@gmail.com', // Endereço de e-mail remetente
+        from: 'contato.makesolution@gmail.com', // Endereço de e-mail remetente
         to: email, // Endereço de e-mail destinatário
-        subject: 'Código de validação', // Assunto do e-mail
-        text: `Seu código de validação é: ${validationCode}` // Corpo do e-mail
+        subject: 'Confirmação de email', // Assunto do e-mail
+        html: `Parabéns você está a um passo de acessar nossa plataforma, <a href="http://localhost:5173/email-validation/${encodedUserId}">Clique aqui</a> para prosseguir.` // Corpo do e-mail
       };
   
       let enviado = 0;
@@ -148,9 +150,8 @@ app.use(cors());
         await sendMailPromise; // Aguarde o envio do e-mail
   
         const [rows, fields] = await connection.execute(
-          'INSERT INTO codigo_validacao (codigo, id_usuario, email_enviado) VALUES (?,?,?)',
+          'INSERT INTO email_validacao (id_usuario, email_enviado) VALUES (?,?)',
           [
-            validationCode,
             userId,
             enviado // Define o valor padrão de email_enviado como 0
           ]
@@ -162,30 +163,6 @@ app.use(cors());
       }
     } else {
       res.status(401).json({ message: 'Não foi possível cadastrar o usuário.' });
-    }
-  });
-  
-  function generateValidationCode() {
-    const codeLength = 6; // Comprimento do código de validação
-    let code = '';
-  
-    for (let i = 0; i < codeLength; i++) {
-      const randomDigit = Math.floor(Math.random() * 10);
-      code += randomDigit;
-    }
-  
-    return code;
-  }
-  
-
-  app.get('/api/users', async (req, res) => {
-    // Lógica para recuperar dados de usuários do banco de dados
-    const users = await connection.execute('SELECT * FROM users');
-
-    if (users && users[0]) {
-      res.status(200).json({ conteudo: users[0] });
-    } else {
-      res.status(401).json({ message: 'Nenhum usuario encontrado' });
     }
   });
 
@@ -265,6 +242,96 @@ app.use(cors());
     }
   });
 
+  app.post('/api/reenviar_email', async (req, res) => {
+    const { username } = req.body;
+  
+    // Verificar se o usuário existe no banco de dados
+    const [rows, fields] = await connection.execute(
+      'SELECT * FROM users WHERE username = ?',
+      [username]
+    );
+  
+    if (rows.length > 0) {
+      const user = rows[0];
+      const userId = user.id;
+      
+      // const token = jwt.sign({ userId }, 'secret');
+      const encodedUserId = encodeURIComponent(userId)
 
+      // Verificar se o email do usuário está verificado
+      if (user.email_verificado.readInt8(0) === 1) {
+        res.status(400).json({ message: 'O email já está verificado.' });
+      } else {
+        const transporter = nodemailer.createTransport({
+          host: 'smtp.elasticemail.com',
+          port: 2525,
+          secure: false, // Use SSL/TLS
+          auth: {
+            user: 'contato.makesolution@gmail.com', // Seu endereço de e-mail
+            pass: 'BDEAE44EB15CC5FEB0F2DD5521D943FB4FB7' // Sua senha de e-mail
+          }
+        });
+    
+        const mailOptions = {
+          from: 'contato.makesolution@gmail.com', // Endereço de e-mail remetente
+          to: user.email, // Endereço de e-mail destinatário
+          subject: 'Confirmação de email', // Assunto do e-mail
+          html: `Parabéns você está a um passo de acessar nossa plataforma, <a href="http://localhost:5173/email-validation/${encodedUserId}">Clique aqui</a> para prosseguir.` // Corpo do e-mail
+        };
+    
+        let enviado = 0;
+    
+        // Envolva a função sendMail em uma Promise
+        const sendMailPromise = new Promise((resolve, reject) => {
+          transporter.sendMail(mailOptions, (error, info) => {
+            if (error) {
+              console.log('Erro ao enviar o e-mail:', error);
+              reject(error);
+            } else {
+              console.log('E-mail enviado:', info.response);
+              enviado = 1;
+              resolve();
+            }
+          });
+        });
+    
+        try {
+          await sendMailPromise; // Aguarde o envio do e-mail
+    
+          const [rows, fields] = await connection.execute(
+            'INSERT INTO email_validacao (id_usuario, email_enviado) VALUES (?,?)',
+            [
+              user.id,
+              enviado // Define o valor padrão de email_enviado como 0
+            ]
+          );
+    
+          res.status(200).json({ message: 'Email reenviado com sucesso' });
+        } catch (error) {
+          res.status(500).json({ message: 'Erro ao reenviar o e-mail de validação.' });
+        }
+      }
+    } else {
+      res.status(404).json({ message: 'Usuário não encontrado.' });
+    }
+  });
+
+  app.post('/api/email-validation', async (req, res) => {
+    const { userId } = req.body;
+
+    try {
+      const [rows, fields] = await connection.execute(
+        'UPDATE users SET email_verificado = 1 WHERE id = ?',
+        [userId]
+      );
+      if (rows.affectedRows > 0) {
+        res.send('Email verificado com sucesso!');
+      } else {
+        res.status(400).send('Falha ao verificar o email.');
+      }
+    } catch (error) {
+      res.status(400).send('Não foi possivel validar o email');
+    }
+  });
 
 })();
