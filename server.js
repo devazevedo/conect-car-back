@@ -29,6 +29,21 @@ app.use(cors());
     console.log(`Toc toc na porta ${port}`);
   });
 
+  const verificarToken = (req, res, next) => {
+    const token = req.headers.authorization;
+    if (!token) {
+      return res.status(401).json({ message: 'Token não fornecido' });
+    }
+  
+    try {
+      const decoded = jwt.verify(token, 'secret');
+      req.user = decoded;
+      next();
+    } catch (error) {
+      return res.status(401).json({ message: 'Token inválido' });
+    }
+  };
+
   // Rotas do servidor
   app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
@@ -166,7 +181,7 @@ app.use(cors());
     }
   });
 
-  app.get('/api/users', async (req, res) => {
+  app.get('/api/users', verificarToken, async (req, res) => {
     // Lógica para recuperar dados de usuários do banco de dados
     const users = await connection.execute('SELECT * FROM users');
 
@@ -177,7 +192,7 @@ app.use(cors());
     }
   });
 
-  app.get('/api/users/:id', async (req, res) => {
+  app.get('/api/users/:id', verificarToken, async (req, res) => {
     const userId = req.params.id;
 
     const [rows, fields] = await connection.execute(
@@ -195,7 +210,7 @@ app.use(cors());
     }
   });
 
-  app.put('/api/users/:id', async (req, res) => {
+  app.put('/api/users/:id', verificarToken, async (req, res) => {
     const userId = req.params.id;
     const body = req.body;
 
@@ -227,7 +242,7 @@ app.use(cors());
     }
   });
 
-  app.delete('/api/users/:id', async (req, res) => {
+  app.delete('/api/users/:id', verificarToken, async (req, res) => {
     const userId = req.params.id;
 
     const [rows, fields] = await connection.execute(
@@ -242,7 +257,7 @@ app.use(cors());
     }
   });
 
-  app.post('/api/reenviar_email', async (req, res) => {
+  app.post('/api/reenviar_email', verificarToken, async (req, res) => {
     const { username } = req.body;
   
     // Verificar se o usuário existe no banco de dados
@@ -316,7 +331,7 @@ app.use(cors());
     }
   });
 
-  app.post('/api/email-validation', async (req, res) => {
+  app.post('/api/email-validation', verificarToken, async (req, res) => {
     const { userId } = req.body;
 
     try {
