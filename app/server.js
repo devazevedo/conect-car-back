@@ -7,6 +7,9 @@ const jwt = require('jsonwebtoken');
 const cors = require('cors');
 const nodemailer = require('nodemailer');
 
+const verificarToken = require('./middlewares/Authenticate');
+const UsersController = require('./controllers/UsersController');
+
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
@@ -24,25 +27,12 @@ app.use(cors());
   // Conexão com o banco de dados
   const connection = await mysql.createConnection(dbConfig);
 
+  const userController = new UsersController();
+
   // Código do servidor
   app.listen(port, () => {
     console.log(`Toc toc na porta ${port}`);
   });
-
-  const verificarToken = (req, res, next) => {
-    const token = req.headers.authorization;
-    if (!token) {
-      return res.status(401).json({ message: 'Token não fornecido' });
-    }
-  
-    try {
-      const decoded = jwt.verify(token, 'secret');
-      req.user = decoded;
-      next();
-    } catch (error) {
-      return res.status(401).json({ message: 'Token inválido' });
-    }
-  };
 
   // Rotas do servidor
   app.post('/api/login', async (req, res) => {
@@ -72,6 +62,9 @@ app.use(cors());
     }
   });
 
+  // app.post('/api/users', (req, res) => {
+  //   userController.criarUsuario(req, res)
+  // });
   app.post('/api/users', async (req, res) => {
     const { username, cpf, email, password } = req.body;
   
@@ -183,6 +176,7 @@ app.use(cors());
 
   app.get('/api/users', verificarToken, async (req, res) => {
     // Lógica para recuperar dados de usuários do banco de dados
+
     const users = await connection.execute('SELECT * FROM users');
 
     if (users && users[0]) {
