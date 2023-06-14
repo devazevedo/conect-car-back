@@ -9,6 +9,7 @@ const nodemailer = require('nodemailer');
 
 const verificarToken = require('./middlewares/Authenticate');
 const UsersController = require('./controllers/UsersController');
+const LoginController = require('./controllers/LoginController');
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -28,6 +29,7 @@ app.use(cors());
   const connection = await mysql.createConnection(dbConfig);
 
   const userController = new UsersController();
+  const loginController = new LoginController();
 
   // Código do servidor
   app.listen(port, () => {
@@ -36,30 +38,7 @@ app.use(cors());
 
   // Rotas do servidor
   app.post('/api/login', async (req, res) => {
-    const { username, password } = req.body;
-  
-    // Procura o usuário no banco de dados
-    const [rows, fields] = await connection.execute(
-      'SELECT * FROM users WHERE username = ?',
-      [username]
-    );
-
-    if (rows.length > 0) {
-      const user = rows[0];  
-      // Verifica se a senha está correta
-      if (password === user.password) {
-        if (user.email_verificado.readInt8(0) === 1) { // Verifica se o email está verificado
-          const token = jwt.sign({ username }, 'secret');
-          res.json({ token });
-        } else {
-          res.status(401).json({ message: 'Email não verificado' });
-        }
-      } else {
-        res.status(401).json({ message: 'Login ou senha inválidos' });
-      }
-    } else {
-      res.status(401).json({ message: 'Login ou senha inválidos' });
-    }
+    loginEfetuado = loginController.login(req, res)
   });
 
   app.post('/api/users', (req, res) => {
