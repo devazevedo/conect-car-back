@@ -22,6 +22,8 @@ class UsersService {
             [username, email, cpf]
         );
 
+        let statusResposta = 0;
+
         if (existingUserRows.length > 0) {
             const conflicts = {};
 
@@ -48,7 +50,7 @@ class UsersService {
             }
 
             // Enviar a resposta com a mensagem de conflito
-            return res.status(409).json({ message, conflicts });
+            return { message, conflicts, status: statusResposta, tipoRetorno: 409 };
         }
 
         // Se não houver nenhum usuário com os mesmos valores, inserir o novo usuário
@@ -112,12 +114,14 @@ class UsersService {
                     ]
                 );
 
-                return res.status(200).json({ message: 'Usuário cadastrado com sucesso.' });
+                statusResposta = 1;
+
+                return { message: 'Usuário cadastrado com sucesso.', status: statusResposta, tipoRetorno: 200 };
             } catch (error) {
-                return res.status(500).json({ message: 'Erro ao enviar o e-mail de validação.' });
+                return { message: 'Erro ao enviar o e-mail de validação.', status: statusResposta, tipoRetorno: 500 };
             }
         } else {
-            return res.status(401).json({ message: 'Não foi possível cadastrar o usuário.' });
+            return { message: 'Não foi possível cadastrar o usuário.', status: statusResposta, tipoRetorno: 401 };
         }
     }
 }

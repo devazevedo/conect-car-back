@@ -7,9 +7,12 @@ class UsersController {
 
     const userService = new UserService();
 
-    const usuarioCriado = await userService.criarUsuario({ username, cpf, email, password })
+    const usuarioCriado = await userService.criarUsuario({ username, cpf, email, password });
 
-    return usuarioCriado;
+    const tipoRetorno = usuarioCriado.tipoRetorno;
+    delete usuarioCriado.tipoRetorno;
+
+    res.status(tipoRetorno).json(usuarioCriado);
   }
 
 }
