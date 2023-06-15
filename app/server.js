@@ -46,15 +46,7 @@ app.use(cors());
   });
 
   app.get('/api/users', verificarToken, async (req, res) => {
-    // Lógica para recuperar dados de usuários do banco de dados
-
-    const users = await connection.execute('SELECT * FROM users');
-
-    if (users && users[0]) {
-      res.status(200).json({ conteudo: users[0] });
-    } else {
-      res.status(401).json({ message: 'Nenhum usuario encontrado' });
-    }
+    listarUsuarios = userController.listarTodosUsuarios(req, res);
   });
 
   app.get('/api/users/:id', verificarToken, async (req, res) => {
