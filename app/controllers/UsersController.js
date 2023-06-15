@@ -15,6 +15,17 @@ class UsersController {
     res.status(tipoRetorno).json(usuarioCriado);
   }
 
+  async listarTodosUsuarios(req, res) {
+    const userService = new UserService();
+
+    const usuarioCriado = await userService.listarTodosUsuarios();
+
+    const tipoRetorno = usuarioCriado.tipoRetorno;
+    delete usuarioCriado.tipoRetorno;
+
+    res.status(tipoRetorno).json(usuarioCriado);
+  }
+
 }
 
 module.exports = UsersController;

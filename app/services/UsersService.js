@@ -124,6 +124,27 @@ class UsersService {
             return { message: 'Não foi possível cadastrar o usuário.', status: statusResposta, tipoRetorno: 401 };
         }
     }
+
+    async listarTodosUsuarios() {
+        const dbConfig = {
+            host: 'localhost',
+            user: 'root',
+            password: '',
+            database: 'conect_car'
+        };
+        const connection = await mysql.createConnection(dbConfig);
+        
+        const users = await connection.execute('SELECT * FROM users');
+
+        let statusRetorno = 0;
+
+        if (users && users[0]) {
+            statusRetorno = 1;
+            return { conteudo: users[0], status: statusRetorno, tipoRetorno: 200 };
+        } else {
+            return { message: 'Nenhum usuario encontrado', status: statusRetorno, tipoRetorno: 401 };
+        }
+    }
 }
 
 module.exports = UsersService;
