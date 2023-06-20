@@ -50,21 +50,8 @@ app.use(cors());
   });
 
   app.get('/api/users/:id', verificarToken, async (req, res) => {
-    const userId = req.params.id;
 
-    const [rows, fields] = await connection.execute(
-      'SELECT * FROM users WHERE id = ?',
-      [userId]
-    );
-
-    if (rows.length > 0) {
-      const user = rows[0];
-      // Envia a resposta com os detalhes do usuário como JSON
-      res.status(200).json({ conteudo: user });
-    } else {
-      // Caso o usuário com o ID fornecido não seja encontrado
-      res.status(404).json({ message: 'Usuário não encontrado' });
-    }
+    listarUsuarioPorId = userController.listarUsuariosPorId(req, res);
   });
 
   app.put('/api/users/:id', verificarToken, async (req, res) => {

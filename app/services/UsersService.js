@@ -145,6 +145,35 @@ class UsersService {
             return { message: 'Nenhum usuario encontrado', status: statusRetorno, tipoRetorno: 401 };
         }
     }
+
+    async listarUsuariosPorId(idUsuario) {
+        const dbConfig = {
+            host: 'localhost',
+            user: 'root',
+            password: '',
+            database: 'conect_car'
+        };
+
+        const connection = await mysql.createConnection(dbConfig);
+
+        let statusRetorno = 0;
+
+        const [rows, fields] = await connection.execute(
+            'SELECT * FROM users WHERE id = ?',
+            [idUsuario]
+          );
+      
+          if (rows.length > 0) {
+            const user = rows[0];
+
+            statusRetorno = 1;
+            // Envia a resposta com os detalhes do usuário como JSON
+            return { conteudo: user, status: statusRetorno, tipoRetorno: 200 };
+          } else {
+            // Caso o usuário com o ID fornecido não seja encontrado
+            return { message: 'Usuário não encontrado', status: statusRetorno, tipoRetorno: 404 };
+          }
+    }
 }
 
 module.exports = UsersService;
