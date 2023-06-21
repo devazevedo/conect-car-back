@@ -26,6 +26,19 @@ class UsersController {
     res.status(tipoRetorno).json(usuarioCriado);
   }
 
+  async listarUsuariosPorId(req, res) {
+    const idUsuario = req.params.id;
+
+    const userService = new UserService();
+
+    const usuarioCriado = await userService.listarUsuariosPorId(idUsuario);
+
+    const tipoRetorno = usuarioCriado.tipoRetorno;
+    delete usuarioCriado.tipoRetorno;
+
+    res.status(tipoRetorno).json(usuarioCriado);
+  }
+
 }
 
 module.exports = UsersController;
